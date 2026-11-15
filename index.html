@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TTS STUDIO PRO | AI Voice & Audio Workspace</title>
+    <!-- Включване на PDF.js и Mammoth.js за директно четене на PDF и Word файлове в браузъра -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
         :root {
             --bg-main: #070709;
@@ -49,8 +52,19 @@
         .panel { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
         .panel h3 { font-size: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; color: #f1f5f9; }
         
-        textarea { width: 100%; height: 210px; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 15px; font-size: 14px; resize: none; outline: none; transition: border-color 0.2s; }
+        /* Input tabs (Ръчно / Файл) */
+        .input-subtabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .subtab-btn { background: #1f2937; border: 1px solid var(--border-color); color: var(--text-muted); padding: 6px 14px; border-radius: 8px; font-size: 12.5px; cursor: pointer; font-weight: 600; }
+        .subtab-btn.active { background: var(--accent-red); color: #fff; border-color: var(--accent-red); }
+
+        .input-view { display: none; }
+        .input-view.active { display: block; }
+
+        textarea { width: 100%; height: 180px; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 15px; font-size: 14px; resize: none; outline: none; transition: border-color 0.2s; }
         textarea:focus { border-color: var(--accent-red); box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.3); }
+        
+        .file-upload-box { border: 2px dashed var(--border-color); border-radius: 12px; padding: 30px; text-align: center; background: #0b0f19; cursor: pointer; transition: border-color 0.2s; }
+        .file-upload-box:hover { border-color: var(--accent-red); }
         
         .controls-group { margin-bottom: 14px; }
         .controls-group label { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
@@ -94,15 +108,15 @@
 
     <!-- Main Content -->
     <main>
-        <!-- Top Banner (точно като на макета) -->
+        <!-- Top Banner -->
         <div class="top-banner">
             <div class="banner-title">
                 <h2>TTS STUDIO PRO</h2>
                 <p>Професионално AI решение за текст към реч, превод и аудио обработка без грешки</p>
                 <div class="banner-badges">
                     <span>✔️ 7 мощни режима</span>
-                    <span>✔️ Високо качество</span>
-                    <span>✔️ Бързо и лесно</span>
+                    <span>✔️ PDF, DOCX & TXT поддръжка</span>
+                    <span>✔️ Мъжки и женски глас</span>
                     <span>✔️ Безплатно</span>
                 </div>
             </div>
@@ -122,18 +136,39 @@
             <div class="mode-tab" onclick="switchMode('archive', this)">📚 Архив</div>
         </div>
 
-        <!-- Workspace Grid (Текст + Настройки) -->
+        <!-- Workspace Grid (Текст/Файл + Настройки) -->
         <div class="workspace-grid">
             <div class="panel">
                 <h3>
-                    <span>✍️ Вашият текст (Автоматично разчита Vivacom, EON, ТВ)</span>
-                    <span style="font-size: 12px; color: var(--text-muted); cursor: pointer;" onclick="document.getElementById('userInput').value=''">🗑️ Изчисти</span>
+                    <span>✍️ Входни данни (Vivacom, EON, ТВ)</span>
+                    <span style="font-size: 12px; color: var(--text-muted); cursor: pointer;" onclick="clearInput()">🗑️ Изчисти</span>
                 </h3>
-                <textarea id="userInput" placeholder="Въведете или поставете текста, който искате да преобразите в аудио... Напр: Виваком представя новата интерактивна телевизия EON и нови ТВ услуги."></textarea>
+                
+                <!-- Подтабове за Ръчно въвеждане или Качване на файл -->
+                <div class="input-subtabs">
+                    <button class="subtab-btn active" onclick="switchInputTab('manual', this)">✍️ Ръчен текст</button>
+                    <button class="subtab-btn" onclick="switchInputTab('file', this)">📁 Качване на файл (.txt, .pdf, .docx)</button>
+                </div>
+
+                <!-- Ръчен изглед -->
+                <div id="view-manual" class="input-view active">
+                    <textarea id="userInput" placeholder="Въведете или поставете текста, който искате да преобразите в аудио... Напр: Виваком представя новата интерактивна телевизия EON и нови ТВ услуги."></textarea>
+                </div>
+
+                <!-- Изглед за качване на файл -->
+                <div id="view-file" class="input-view">
+                    <div class="file-upload-box" onclick="document.getElementById('fileInput').click()">
+                        <div style="font-size: 32px; margin-bottom: 8px;">📂</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #f8fafc; margin-bottom: 4px;">Кликнете тук или плъзнете файл</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Поддържани формати: .TXT, .PDF, .DOCX</div>
+                        <input type="file" id="fileInput" accept=".txt,.pdf,.docx" style="display:none;" onchange="handleFileUpload(event)">
+                    </div>
+                    <div id="fileStatus" style="font-size: 12.5px; color: #10b981; margin-top: 10px; font-weight: 600;"></div>
+                </div>
                 
                 <div class="btn-action-row">
                     <button class="btn-primary" onclick="speakText()">▶ Генерирай аудио</button>
-                    <button class="btn-secondary" onclick="alert('Готово за изтегляне!')">📥 Изтегли</button>
+                    <button class="btn-secondary" onclick="alert('Аудио записът е готов за изтегляне!')">📥 Изтегли</button>
                 </div>
             </div>
 
@@ -188,14 +223,81 @@
             element.classList.add('active');
             
             if(mode !== 'tts') {
-                alert("Режимът '" + mode + "'' е зареден в пълната работна среда!");
+                alert("Режимът '" + mode + "' е зареден в работната среда!");
+            }
+        }
+
+        function switchInputTab(tab, element) {
+            document.querySelectorAll('.subtab-btn').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.input-view').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('view-' + tab).classList.add('active');
+        }
+
+        function clearInput() {
+            document.getElementById('userInput').value = '';
+            document.getElementById('fileStatus').innerText = '';
+        }
+
+        // Обработка на качени файлове (TXT, PDF, DOCX)
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileName = file.name;
+            const fileExt = fileName.split('.').pop().toLowerCase();
+            const statusEl = document.getElementById('fileStatus');
+            statusEl.innerText = "⏳ Обработка на файла " + fileName + "...";
+
+            if (fileExt === 'txt') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('userInput').value = e.target.result;
+                    statusEl.innerText = "✅ Успешно завлечен текст от " + fileName;
+                    switchInputTab('manual', document.querySelector('.subtab-btn'));
+                };
+                reader.readAsText(file);
+            } else if (fileExt === 'pdf') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const typedarray = new Uint8Array(e.target.result);
+                    pdfjsLib.getDocument(typedarray).promise.then(async function(pdf) {
+                        let fullText = "";
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            let page = await pdf.getPage(i);
+                            let textContent = await page.getTextContent();
+                            let pageText = textContent.items.map(item => item.str).join(" ");
+                            fullText += pageText + "\n";
+                        }
+                        document.getElementById('userInput').value = fullText;
+                        statusEl.innerText = "✅ Успешно извлечен PDF текст от " + fileName;
+                        switchInputTab('manual', document.querySelector('.subtab-btn'));
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            } else if (fileExt === 'docx') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    mammoth.extractRawText({arrayBuffer: e.target.result})
+                        .then(function(result) {
+                            document.getElementById('userInput').value = result.value;
+                            statusEl.innerText = "✅ Успешно извлечен Word текст от " + fileName;
+                            switchInputTab('manual', document.querySelector('.subtab-btn'));
+                        })
+                        .catch(function(err) {
+                            statusEl.innerText = "❌ Грешка при четене на DOCX файла.";
+                        });
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                statusEl.innerText = "❌ Неподдържан формат на файл.";
             }
         }
 
         function speakText() {
             let text = document.getElementById('userInput').value;
             if(!text.trim()) {
-                alert("Моля, въведете текст!");
+                alert("Моля, въведете или качете текст!");
                 return;
             }
 
